@@ -1,0 +1,26 @@
+# Motor & Cyber Law Advisor — Stage 1 Dependencies
+# Install with: pip install -r requirements.txt
+
+# PDF extraction
+PyPDF2==3.0.1
+
+# Chunking & document handling
+langchain==0.1.16
+langchain-community==0.0.36
+
+# Local embeddings (all-MiniLM-L6-v2, ~80 MB download on first run)
+sentence-transformers==2.7.0
+
+# Vector database
+chromadb>=0.4.24
+
+# UI (Phase 4)
+streamlit==1.33.0
+
+# Logging & utilities
+python-dotenv==1.0.1
+
+# Optional: OCR if your PDFs are scanned images
+pytesseract==0.3.10
+pdf2image==1.17.0
+Pillow==10.3.0

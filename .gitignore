@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment variables (NEVER commit API keys)
+.env
+
+# ChromaDB vector store (large binary files)
+data/processed/chroma_db/
+
+# SQLite logs
+data/query_log.db
+
+# Logs
+logs/
+
+# Raw PDFs (large files — add manually or use Git LFS)
+data/raw/*.pdf
+
+# Processed text
+data/processed/*.txt
+
+# Eval results (optional — remove if you want to track)
+data/eval_results.csv
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

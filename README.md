@@ -188,21 +188,3 @@ Contributions are welcome. Please:
 1. Fork the repository
 2. Create a feature branch
 3. Submit a pull request
-
----
-
-## 📜 License
-
-This project is licensed under the MIT License.
-
----
-
-## 👨‍💻 Author
-
-Developed as part of a legal-tech RAG system using modern LLM infrastructure.
-
----
-
-## ⭐ Support
-
-If you find this project useful, consider giving it a ⭐ on GitHub!

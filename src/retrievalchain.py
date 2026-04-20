@@ -1,7 +1,7 @@
 """
 ╔══════════════════════════════════════════════════════════════════╗
 ║      MOTOR & CYBER LAW ADVISOR — STAGE 2: RETRIEVAL CHAIN       ║
-║      ChromaDB → LangChain → Groq (primary) / Gemini (fallback)  ║
+║      ChromaDB → LangChain → Gemini 2.5 Pro → Cited Answer       ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 What this file does:
@@ -10,21 +10,20 @@ What this file does:
   3. Embeds the query with the SAME HuggingFace model used in Stage 1
   4. Retrieves the top-k most relevant legal chunks (semantic search)
   5. Injects chunks into a strict citation prompt
-  6. Sends prompt to Groq (primary) or Gemini (fallback)
+  6. Sends prompt to Gemini 1.5 Flash
   7. Returns cited answer or forced disclaimer
   8. Logs every query → SQLite (for Power BI analysis)
 
 Install:
-    pip install langchain langchain-community langchain-google-genai langchain-groq
-    pip install sentence-transformers chromadb google-generativeai groq
+    pip install langchain langchain-community langchain-google-genai
+    pip install sentence-transformers chromadb google-generativeai
     pip install python-dotenv
 
 .env file (create in project root):
-    GROQ_API_KEY=your_groq_key_here
-    GEMINI_API_KEY=your_gemini_key_here
+    GEMINI_API_KEY=your_key_here
 
 Run:
-    python src/retrievalchain.py
+    python src/stage2_retrieval_chain.py
 """
 
 # ─────────────────────────────────────────────────────────────────
@@ -40,11 +39,10 @@ from datetime import datetime
 from dotenv import load_dotenv
 load_dotenv()
 
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_groq import ChatGroq
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain.schema import HumanMessage, SystemMessage
 
 # ─────────────────────────────────────────────────────────────────
 #  CONFIG  ← edit these if your paths differ
@@ -52,8 +50,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 CHROMA_DIR   = "data/processed/chroma_db"    # built by Stage 1
 DB_LOG_PATH  = "data/query_log.db"           # SQLite log for Power BI
 EMBED_MODEL  = "sentence-transformers/all-MiniLM-L6-v2"
-GEMINI_MODEL = "gemini-2.5-pro"              # fallback model
-GROQ_MODEL   = "llama-3.3-70b-versatile"     # primary model (3-5x faster)
+GEMINI_MODEL = "gemini-2.5-pro"
 TOP_K        = 3      # number of chunks retrieved per query
 EMBED_DEVICE = "cpu"  # "cuda" if you have an Nvidia GPU
 
@@ -231,62 +228,41 @@ def format_context(chunks: list) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  BLOCK 4 — LLM CHAIN  (Groq primary → Gemini fallback)
-#
-#  Strategy:
-#    1. Try Groq (llama-3.3-70b) — 3-5x faster, 14,400 req/day limit
-#    2. If GROQ_API_KEY is missing or Groq call fails → fall back to Gemini
+#  BLOCK 4 — LLM CHAIN (Gemini 2.5 Pro)
+#  Sends the system prompt + retrieved context + user query to Gemini.
+#  Returns the generated cited answer.
 # ═══════════════════════════════════════════════════════════════════
-def build_llm():
+def build_llm() -> ChatGoogleGenerativeAI:
     """
-    Build LLM with Groq as primary and Gemini as fallback.
+    Initialise Gemini 2.5 Pro (largest context window: 1M tokens).
 
-    Returns:
-        tuple (llm, provider) where provider is 'groq' or 'gemini'.
-
-    Requires at least one of:
-        GROQ_API_KEY   — https://console.groq.com/keys
-        GEMINI_API_KEY — https://aistudio.google.com/app/apikey
+    Requires GEMINI_API_KEY in .env file.
+    Get a free key at: https://aistudio.google.com/app/apikey
     """
-    groq_key   = os.getenv("GROQ_API_KEY")
-    gemini_key = os.getenv("GEMINI_API_KEY")
-
-    # ── Try Groq first ──────────────────────────────────────────────
-    if groq_key:
-        try:
-            llm = ChatGroq(
-                model=GROQ_MODEL,
-                groq_api_key=groq_key,
-                temperature=0.0,
-                max_tokens=2048,
-            )
-            log.info(f"Primary LLM: Groq / {GROQ_MODEL}")
-            return llm, "groq"
-        except Exception as e:
-            log.warning(f"Groq init failed ({e}), falling back to Gemini.")
-
-    # ── Fall back to Gemini ─────────────────────────────────────────
-    if not gemini_key:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
         raise ValueError(
-            "No API key found. Set GROQ_API_KEY or GEMINI_API_KEY in your .env file."
+            "GEMINI_API_KEY not found. "
+            "Add it to your .env file: GEMINI_API_KEY=your_key_here"
         )
 
     llm = ChatGoogleGenerativeAI(
         model=GEMINI_MODEL,
-        google_api_key=gemini_key,
-        temperature=0.0,
+        google_api_key=api_key,
+        temperature=0.0,      # 0 = deterministic, no creative guessing
         max_output_tokens=2048,
     )
-    log.info(f"Fallback LLM: Gemini / {GEMINI_MODEL}")
-    return llm, "gemini"
+
+    log.info(f"Gemini model ready: {GEMINI_MODEL}")
+    return llm
 
 
 def generate_answer(llm, context: str, question: str) -> str:
     """
-    Send the filled prompt to the active LLM and return the response.
+    Send the filled prompt to Gemini and return the response.
 
     Args:
-        llm:      Active LLM (Groq or Gemini)
+        llm:      Initialised Gemini LLM
         context:  Formatted retrieved chunks
         question: User's original question
 
@@ -300,8 +276,7 @@ def generate_answer(llm, context: str, question: str) -> str:
 
     messages = [HumanMessage(content=filled_prompt)]
 
-    provider = getattr(llm, "_llm_type", "llm")
-    log.info(f"Sending prompt to {provider}...")
+    log.info("Sending prompt to Gemini...")
     response = llm.invoke(messages)
 
     return response.content.strip()
@@ -331,7 +306,7 @@ def init_db(db_path: str = DB_LOG_PATH) -> sqlite3.Connection:
     Returns a SQLite connection.
     """
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn = sqlite3.connect(db_path)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS query_log (
             id                   INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -521,7 +496,7 @@ def main():
 
     # Load all components
     db   = load_vector_store()
-    llm, provider = build_llm()
+    llm  = build_llm()
     conn = init_db()
 
     # Run verification first

@@ -73,6 +73,8 @@ TEST_SUITE = [
     ("Can a learner's licence holder drive alone on the road?",          "MVA", "MVA_Licence"),
     ("What is the validity period of a driving licence?",                "MVA", "MVA_Licence"),
     ("Can my driving licence be suspended?",                             "MVA", "MVA_Licence"),
+    ("Can I apply for an international driving permit in India?",        "MVA", "MVA_Licence"),
+    ("What is the penalty for driving with a fake driving licence?",     "MVA", "MVA_Licence"),
 
     # ── MOTOR VEHICLES ACT — Penalties & Offences ────────────────
     ("What is the fine for drunk driving in India?",                     "MVA", "MVA_Penalties"),
@@ -85,13 +87,18 @@ TEST_SUITE = [
     ("What is the penalty for overloading a vehicle?",                   "MVA", "MVA_Penalties"),
     ("What is the fine for driving without a valid registration?",       "MVA", "MVA_Penalties"),
     ("What is the punishment for driving without a permit?",             "MVA", "MVA_Penalties"),
+    ("What happens if I park my vehicle in a no-parking zone?",          "MVA", "MVA_Penalties"),
+    ("Is it illegal to modify the silencer of a bike?",                  "MVA", "MVA_Penalties"),
 
     # ── MOTOR VEHICLES ACT — Vehicle Registration & Insurance ────
     ("Is vehicle insurance mandatory in India?",                         "MVA", "MVA_Insurance"),
     ("What is a third-party insurance policy for vehicles?",             "MVA", "MVA_Insurance"),
+    ("Can I claim insurance if I was driving drunk?",                    "MVA", "MVA_Insurance"),
     ("Can I drive an unregistered vehicle in India?",                    "MVA", "MVA_Registration"),
     ("What is the process for vehicle registration?",                    "MVA", "MVA_Registration"),
     ("What is the penalty for using a vehicle with a fake number plate?","MVA", "MVA_Registration"),
+    ("How long is a vehicle registration certificate valid?",            "MVA", "MVA_Registration"),
+    ("Can I transfer my vehicle registration to another state?",         "MVA", "MVA_Registration"),
 
     # ── MOTOR VEHICLES ACT — Accidents & Compensation ────────────
     ("What should I do after a road accident in India?",                 "MVA", "MVA_Accident"),
@@ -99,12 +106,15 @@ TEST_SUITE = [
     ("What is the motor accident claims tribunal?",                      "MVA", "MVA_Accident"),
     ("Is a hit-and-run accident driver punishable under MVA?",           "MVA", "MVA_Accident"),
     ("Who is liable to pay compensation in a road accident?",            "MVA", "MVA_Accident"),
+    ("Is it mandatory to report a minor accident to the police?",        "MVA", "MVA_Accident"),
 
     # ── MOTOR VEHICLES ACT — Miscellaneous ───────────────────────
     ("What is the speed limit for vehicles on highways?",                "MVA", "MVA_Misc"),
     ("Can a minor drive a vehicle with parental permission?",            "MVA", "MVA_Misc"),
     ("What are the rules for wearing a seatbelt in rear seats?",         "MVA", "MVA_Misc"),
     ("Can police seize my vehicle for traffic violations?",              "MVA", "MVA_Misc"),
+    ("Are electric scooters exempt from traffic rules?",                 "MVA", "MVA_Misc"),
+    ("What are the rules regarding tinted windows in cars?",             "MVA", "MVA_Misc"),
 
     # ── IT ACT — Cyber Crimes & Punishments ──────────────────────
     ("What is the punishment for hacking a computer system?",            "ITA", "ITA_CyberCrime"),
@@ -117,22 +127,31 @@ TEST_SUITE = [
     ("What is the punishment for stealing someone's password?",          "ITA", "ITA_CyberCrime"),
     ("What is data theft under the IT Act?",                             "ITA", "ITA_CyberCrime"),
     ("What is the punishment for cyber terrorism in India?",             "ITA", "ITA_CyberCrime"),
+    ("Is it illegal to download pirated movies in India?",               "ITA", "ITA_CyberCrime"),
+    ("What is the penalty for creating fake social media accounts?",     "ITA", "ITA_CyberCrime"),
+    ("What is the punishment for cyberbullying a teenager?",             "ITA", "ITA_CyberCrime"),
 
     # ── IT ACT — Electronic Signatures & Evidence ────────────────
     ("Is an electronic signature legally valid in India?",               "ITA", "ITA_Esign"),
     ("What is a digital signature certificate?",                         "ITA", "ITA_Esign"),
     ("Are electronic contracts legally enforceable in India?",           "ITA", "ITA_Esign"),
     ("What is a certifying authority under the IT Act?",                 "ITA", "ITA_Esign"),
+    ("Can an e-signature be used for property registration?",            "ITA", "ITA_Esign"),
+    ("How do I verify the authenticity of a digital signature?",         "ITA", "ITA_Esign"),
 
     # ── IT ACT — Data Protection & Intermediaries ────────────────
     ("What are the responsibilities of internet intermediaries?",        "ITA", "ITA_Intermediary"),
     ("Can a social media platform be held liable for user content?",     "ITA", "ITA_Intermediary"),
     ("What is the safe harbour protection for intermediaries?",          "ITA", "ITA_Intermediary"),
+    ("Can an internet service provider be sued for user actions?",       "ITA", "ITA_Intermediary"),
+    ("Do social media sites have to remove offensive posts immediately?","ITA", "ITA_Intermediary"),
     ("What obligations does a company have to protect user data?",       "ITA", "ITA_DataProt"),
+    ("What happens if a company leaks my personal data?",                "ITA", "ITA_DataProt"),
 
     # ── IT ACT — Section 66A (Special Case) ──────────────────────
     ("Can I be arrested for posting offensive content online?",          "ITA", "ITA_66A"),
     ("Is Section 66A of the IT Act still valid law?",                    "ITA", "ITA_66A"),
+    ("What happens if someone registers a police complaint under Section 66A?", "ITA", "ITA_66A"),
 
     # ── OUT-OF-SCOPE (should return DISCLAIMER) ───────────────────
     ("What are the rules for drone registration in India?",              None,  "OOS"),
@@ -141,6 +160,8 @@ TEST_SUITE = [
     ("What is the penalty for income tax evasion in India?",             None,  "OOS"),
     ("What is the right to privacy under the Indian Constitution?",      None,  "OOS"),
     ("What are the gun licence rules in India?",                         None,  "OOS"),
+    ("How do I apply for a passport online?",                            None,  "OOS"),
+    ("Is cryptocurrency legal tender in India?",                         None,  "OOS"),
 ]
 
 
@@ -279,7 +300,7 @@ def export_csv(rows: list[dict], path: str = "data/eval_results.csv") -> None:
 def main():
     print("Loading pipeline components...")
     db   = load_vector_store()
-    llm  = build_llm()
+    llm, provider = build_llm()
     conn = init_db()
 
     summary = run_evaluation(db, llm, conn)

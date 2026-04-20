@@ -17,6 +17,11 @@ chromadb>=0.4.24
 # UI (Phase 4)
 streamlit==1.33.0
 
+# LLM providers
+langchain-google-genai
+langchain-groq
+groq
+
 # Logging & utilities
 python-dotenv==1.0.1
 

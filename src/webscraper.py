@@ -579,7 +579,7 @@ def main():
     log.info("\n" + "=" * 65)
     log.info("  Scraping complete.")
     log.info(f"  Output directory: {OUTPUT_DIR.resolve()}")
-    log.info("  Next step: run stage1_ingestion.py")
+    log.info("  Next step: run src/ingestion.py")
     log.info("=" * 65)
 
 

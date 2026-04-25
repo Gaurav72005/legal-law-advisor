@@ -146,10 +146,10 @@ TEST_SUITE = [
 
 # ─────────────────────────────────────────────────────────────────
 #  RATE-LIMIT CONFIGURATION
-#  Free-tier Gemini allows ~5 requests/min.
+#  Groq has strict tokens-per-minute rate limits.
 #  Set to >= 13s to stay within limits. Paid-tier users: set to 0.
 # ─────────────────────────────────────────────────────────────────
-RATE_LIMIT_DELAY_SEC = 13   # seconds to wait between Gemini calls
+RATE_LIMIT_DELAY_SEC = 2   # seconds to wait between Groq calls
 
 
 # ═══════════════════════════════════════════════════════════════════

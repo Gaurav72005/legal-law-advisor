@@ -1,7 +1,7 @@
 """
 ╔══════════════════════════════════════════════════════════════════╗
 ║      MOTOR & CYBER LAW ADVISOR — STAGE 2: RETRIEVAL CHAIN       ║
-║      ChromaDB → LangChain → Gemini 2.5 Pro → Cited Answer       ║
+║      ChromaDB → LangChain → Groq (Llama 3) → Cited Answer       ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 What this file does:
@@ -10,20 +10,20 @@ What this file does:
   3. Embeds the query with the SAME HuggingFace model used in Stage 1
   4. Retrieves the top-k most relevant legal chunks (semantic search)
   5. Injects chunks into a strict citation prompt
-  6. Sends prompt to Gemini 1.5 Flash
+  6. Sends prompt to Groq (Llama 3)
   7. Returns cited answer or forced disclaimer
   8. Logs every query → SQLite (for Power BI analysis)
 
 Install:
-    pip install langchain langchain-community langchain-google-genai
-    pip install sentence-transformers chromadb google-generativeai
+    pip install langchain langchain-community langchain-groq
+    pip install sentence-transformers chromadb
     pip install python-dotenv
 
 .env file (create in project root):
-    GEMINI_API_KEY=your_key_here
+    GROQ_API_KEY=your_key_here
 
 Run:
-    python src/stage2_retrieval_chain.py
+    python src/retrievalchain.py
 """
 
 # ─────────────────────────────────────────────────────────────────
@@ -41,7 +41,7 @@ load_dotenv()
 
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_groq import ChatGroq
 from langchain.schema import HumanMessage, SystemMessage
 
 # ─────────────────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ from langchain.schema import HumanMessage, SystemMessage
 CHROMA_DIR   = "data/processed/chroma_db"    # built by Stage 1
 DB_LOG_PATH  = "data/query_log.db"           # SQLite log for Power BI
 EMBED_MODEL  = "sentence-transformers/all-MiniLM-L6-v2"
-GEMINI_MODEL = "gemini-2.5-pro"
+GROQ_MODEL   = "llama-3.1-8b-instant"
 TOP_K        = 3      # number of chunks retrieved per query
 EMBED_DEVICE = "cpu"  # "cuda" if you have an Nvidia GPU
 
@@ -77,7 +77,7 @@ log = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════
 #  BLOCK 1 — SYSTEM PROMPT
 #
-#  This is the exact prompt injected into Gemini before every query.
+#  This is the exact prompt injected into Groq before every query.
 #  It defines the AI's persona, citation rules, fallback behaviour,
 #  and the Section 66A constitutional void notice.
 #
@@ -86,44 +86,39 @@ log = logging.getLogger(__name__)
 # ═══════════════════════════════════════════════════════════════════
 SYSTEM_PROMPT = """
 You are a Legal Information Assistant specialised in Indian law.
-You assist Indian citizens in understanding their legal rights under
-the Motor Vehicles Act 2019 and the Information Technology Act 2000.
+You help Indian citizens understand their rights under the
+Motor Vehicles Act 2019 (MVA) and the Information Technology Act 2000 (ITA).
+
+RULES:
+
+1. ANSWER HELPFULLY
+   Give a clear, accurate answer using your knowledge of MVA and ITA.
+   Use the CONTEXT sections below as a reference guide — they tell you
+   which sections are relevant. Fill in the details from your legal
+   knowledge of these well-known Indian public laws.
+
+2. ALWAYS CITE SECTIONS
+   For every legal point, include a citation in this format:
+   (Section NUMBER, Act Name)
+   Example: "Drunk driving is punishable with ₹10,000 fine for first
+   offence. (Section 185, Motor Vehicles Act 2019)"
+
+3. STAY IN SCOPE
+   Only answer questions about MVA 2019 and ITA 2000.
+   For anything else, say: "This is outside the scope of the Motor
+   Vehicles Act and IT Act. Please consult a qualified lawyer."
+
+4. SECTION 66A IS VOID
+   If asked about Section 66A of the IT Act, explain it was struck
+   down by the Supreme Court in Shreya Singhal v. Union of India (2015)
+   and is no longer valid law.
+
+5. ALWAYS ADD A DISCLAIMER
+   End every answer with: "Note: This is legal information, not legal
+   advice. Please consult a qualified lawyer for your specific situation."
 
 ════════════════════════════════════════════════════
-STRICT RULES — follow ALL of these without exception
-════════════════════════════════════════════════════
-
-1. CITATIONS ARE MANDATORY
-   Every single legal claim you make MUST include a citation.
-   Use this exact format: (Section [NUMBER], [FULL ACT NAME])
-   Example: "A person driving under influence of alcohol shall be
-   punishable with a fine of ₹10,000 for first offence.
-   (Section 185, Motor Vehicles Act 2019)"
-
-2. ANSWER ONLY FROM THE PROVIDED CONTEXT
-   Use ONLY the legal sections provided in CONTEXT below.
-   Do NOT use your training knowledge.
-   Do NOT cite sections that are not in the provided context.
-   Do NOT invent or guess any section number.
-
-3. FALLBACK IS MANDATORY WHEN CONTEXT IS INSUFFICIENT
-   If the provided sections do not contain a clear answer,
-   respond with EXACTLY this sentence and nothing else:
-   "I do not have the specific legal data to answer this.
-   Please consult a qualified lawyer."
-
-4. SECTION 66A IS CONSTITUTIONALLY VOID
-   If asked about Section 66A of the IT Act, tell the user it was
-   struck down by the Supreme Court in Shreya Singhal v. Union of
-   India, AIR 2015 SC 1523. It cannot be cited as valid law.
-
-5. YOU ARE NOT A LAWYER
-   Never give legal advice. Only provide legal information.
-   Always encourage the user to verify with a qualified lawyer
-   for their specific situation.
-
-════════════════════════════════════════════════════
-CONTEXT — Retrieved legal sections:
+CONTEXT — Relevant sections identified by the database:
 {context}
 ════════════════════════════════════════════════════
 
@@ -228,41 +223,40 @@ def format_context(chunks: list) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════
-#  BLOCK 4 — LLM CHAIN (Gemini 2.5 Pro)
-#  Sends the system prompt + retrieved context + user query to Gemini.
+#  BLOCK 4 — LLM CHAIN (Groq Llama 3)
+#  Sends the system prompt + retrieved context + user query to Groq.
 #  Returns the generated cited answer.
 # ═══════════════════════════════════════════════════════════════════
-def build_llm() -> ChatGoogleGenerativeAI:
+def build_llm() -> ChatGroq:
     """
-    Initialise Gemini 2.5 Pro (largest context window: 1M tokens).
+    Initialise Groq (Llama 3).
 
-    Requires GEMINI_API_KEY in .env file.
-    Get a free key at: https://aistudio.google.com/app/apikey
+    Requires GROQ_API_KEY in .env file.
     """
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         raise ValueError(
-            "GEMINI_API_KEY not found. "
-            "Add it to your .env file: GEMINI_API_KEY=your_key_here"
+            "GROQ_API_KEY not found. "
+            "Add it to your .env file: GROQ_API_KEY=your_key_here"
         )
 
-    llm = ChatGoogleGenerativeAI(
-        model=GEMINI_MODEL,
-        google_api_key=api_key,
+    llm = ChatGroq(
+        model_name=GROQ_MODEL,
+        groq_api_key=api_key,
         temperature=0.0,      # 0 = deterministic, no creative guessing
-        max_output_tokens=2048,
+        max_tokens=2048,
     )
 
-    log.info(f"Gemini model ready: {GEMINI_MODEL}")
+    log.info(f"Groq model ready: {GROQ_MODEL}")
     return llm
 
 
 def generate_answer(llm, context: str, question: str) -> str:
     """
-    Send the filled prompt to Gemini and return the response.
+    Send the filled prompt to Groq and return the response.
 
     Args:
-        llm:      Initialised Gemini LLM
+        llm:      Initialised Groq LLM
         context:  Formatted retrieved chunks
         question: User's original question
 
@@ -276,10 +270,95 @@ def generate_answer(llm, context: str, question: str) -> str:
 
     messages = [HumanMessage(content=filled_prompt)]
 
-    log.info("Sending prompt to Gemini...")
+    log.info("Sending prompt to Groq...")
     response = llm.invoke(messages)
 
     return response.content.strip()
+
+
+# ═══════════════════════════════════════════════════════════════════
+#  BLOCK 4b — SELF-LEARNING / AUTO-TRAIN
+#
+#  When a query returns a disclaimer (answer_found=0), this function:
+#  1. Re-asks the LLM with an unrestricted prompt to generate an answer
+#  2. Saves the Q&A as a new document in ChromaDB
+#  3. Next time a similar question is asked, the DB will have the answer
+# ═══════════════════════════════════════════════════════════════════
+LEARN_PROMPT = """
+You are an expert on Indian law, specifically the Motor Vehicles Act 2019
+and the Information Technology Act 2000.
+
+A user asked the following question and the system could not find a clear
+answer in its database. Please provide a thorough, accurate answer based
+on your knowledge of these laws.
+
+Format requirements:
+- Cite the exact section number(s) for every legal claim.
+- Format: (Section NUMBER, Act Name)
+- Keep the answer factual, clear, and under 300 words.
+- End with: "Note: This is legal information, not legal advice."
+
+QUESTION: {question}
+"""
+
+
+def learn_from_unanswered(db: Chroma, llm, question: str) -> str:
+    """
+    Auto-train: generate a proper answer for a missed question
+    and add it to ChromaDB so future queries find it.
+
+    Returns the generated answer string.
+    """
+    from langchain.schema import Document
+
+    log.info(f"[AUTO-LEARN] Generating answer for missed question: '{question[:80]}'")
+
+    # Step 1: Generate answer without context restriction
+    filled = LEARN_PROMPT.format(question=question)
+    messages = [HumanMessage(content=filled)]
+    response = llm.invoke(messages)
+    answer = response.content.strip()
+
+    # Detect which act this is about
+    q_lower = question.lower()
+    if any(w in q_lower for w in ["cyber", "hacking", "it act", "identity theft",
+                                   "digital", "electronic", "computer", "section 66",
+                                   "section 43", "section 67", "intermediary"]):
+        act_code, act_name = "ITA", "Information Technology Act 2000"
+    else:
+        act_code, act_name = "MVA", "Motor Vehicles Act 2019"
+
+    # Step 2: Create document content = question + answer (boosts future retrieval)
+    doc_content = f"Q: {question}\nA: {answer}"
+    doc = Document(
+        page_content=doc_content,
+        metadata={
+            "act_code":   act_code,
+            "act_name":   act_name,
+            "source":     "auto_learned",
+            "question":   question,
+        }
+    )
+
+    # Step 3: Add to ChromaDB
+    db.add_documents([doc])
+    log.info(f"[AUTO-LEARN] Saved to ChromaDB — act={act_code} | chars={len(doc_content)}")
+
+    # Step 4: Persist the new document to a JSON log
+    import json
+    learn_log_path = Path("data/auto_learned.json")
+    learn_log_path.parent.mkdir(parents=True, exist_ok=True)
+    entries = []
+    if learn_log_path.exists():
+        try:
+            entries = json.loads(learn_log_path.read_text(encoding="utf-8"))
+        except Exception:
+            entries = []
+    entries.append({"question": question, "answer": answer, "act": act_code})
+    learn_log_path.write_text(json.dumps(entries, indent=2, ensure_ascii=False), encoding="utf-8")
+    log.info(f"[AUTO-LEARN] Logged to {learn_log_path}")
+
+    return answer
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -289,7 +368,7 @@ def generate_answer(llm, context: str, question: str) -> str:
 #  Columns:
 #    timestamp           — when the query was made
 #    user_query          — raw question text
-#    llm_response        — full answer from Gemini
+#    llm_response        — full answer from Groq
 #    source_section_cited — section number extracted from answer
 #    act_code            — MVA or ITA (from top retrieved chunk)
 #    latency_ms          — response time in milliseconds
@@ -306,7 +385,7 @@ def init_db(db_path: str = DB_LOG_PATH) -> sqlite3.Connection:
     Returns a SQLite connection.
     """
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS query_log (
             id                   INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -367,7 +446,7 @@ def rag_query(db: Chroma, llm, conn: sqlite3.Connection,
 
     Args:
         db:       Loaded ChromaDB vectorstore
-        llm:      Initialised Gemini LLM
+        llm:      Initialised Groq LLM
         conn:     SQLite connection for logging
         question: User's plain-language legal question
 

@@ -7,6 +7,7 @@ PyPDF2==3.0.1
 # Chunking & document handling
 langchain==0.1.16
 langchain-community==0.0.36
+langchain-groq
 
 # Local embeddings (all-MiniLM-L6-v2, ~80 MB download on first run)
 sentence-transformers==2.7.0
@@ -19,6 +20,10 @@ streamlit==1.33.0
 
 # Logging & utilities
 python-dotenv==1.0.1
+pandas>=2.0.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
 
 # Optional: OCR if your PDFs are scanned images
 pytesseract==0.3.10

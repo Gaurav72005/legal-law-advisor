@@ -516,7 +516,7 @@ def main():
     log.info("\n" + "=" * 60)
     if ok:
         log.info("  Stage 1 COMPLETE — vector store is healthy.")
-        log.info("  Next step: run stage2_retrieval_chain.py")
+        log.info("  Next step: run src/retrievalchain.py")
     else:
         log.warning("  Stage 1 finished with warnings — review logs above.")
     log.info("=" * 60)

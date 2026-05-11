@@ -27,6 +27,4 @@ beautifulsoup4>=4.12.0
 lxml>=4.9.0
 
 # Optional: OCR if your PDFs are scanned images
-pytesseract==0.3.10
-pdf2image==1.17.0
-Pillow==10.3.0
+# (Removed to prevent build errors on Render)

@@ -4,8 +4,6 @@
 ║         Data Ingestion · Cleaning · Chunking · Vectorization     ║
 ╚══════════════════════════════════════════════════════════════════╝
 
-Author  : Data Analyst (Legal Tech Project)
-Stack   : PyPDF2, LangChain, HuggingFace, ChromaDB
 PDFs    : IT Act 2000 (it_act.pdf) · Motor Vehicles Act (motor_vehicle.pdf)
 
 """

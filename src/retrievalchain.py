@@ -3,27 +3,6 @@
 ║      MOTOR & CYBER LAW ADVISOR — STAGE 2: RETRIEVAL CHAIN       ║
 ║      ChromaDB → LangChain → Groq (Llama 3) → Cited Answer       ║
 ╚══════════════════════════════════════════════════════════════════╝
-
-What this file does:
-  1. Loads the ChromaDB vector store built in Stage 1
-  2. Accepts a user query
-  3. Embeds the query with the SAME HuggingFace model used in Stage 1
-  4. Retrieves the top-k most relevant legal chunks (semantic search)
-  5. Injects chunks into a strict citation prompt
-  6. Sends prompt to Groq (Llama 3)
-  7. Returns cited answer or forced disclaimer
-  8. Logs every query → SQLite (for Power BI analysis)
-
-Install:
-    pip install langchain langchain-community langchain-groq
-    pip install sentence-transformers chromadb
-    pip install python-dotenv
-
-.env file (create in project root):
-    GROQ_API_KEY=your_key_here
-
-Run:
-    python src/retrievalchain.py
 """
 
 # ─────────────────────────────────────────────────────────────────

@@ -18,7 +18,7 @@ env/
 .env
 
 # ChromaDB vector store (large binary files)
-data/processed/chroma_db/
+# data/processed/chroma_db/
 
 # SQLite logs
 data/query_log.db

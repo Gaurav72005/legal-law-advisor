@@ -13,12 +13,6 @@ Purpose:
 
     Information Technology Act 2000 (ITA) — cyber crimes, hacking,
         identity theft, data protection, Section 66A, e-commerce, etc.
-
-  Results are printed to the console AND written to:
-    data/eval_results.csv   ← for Excel / Power BI analysis
-
-Run:
-    python src/evaluate.py
 """
 
 # ─────────────────────────────────────────────────────────────────

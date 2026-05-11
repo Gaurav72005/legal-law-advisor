@@ -9,18 +9,6 @@ Websites covered:
   2. MoRTH      (morth.nic.in)      → Motor Transport notifications
   3. MeitY      (meity.gov.in)      → IT Act notifications & circulars
 
-Output CSVs (all saved to data/raw/scraped/):
-  - indiacode_it_act_toc.csv
-  - indiacode_mva_toc.csv
-  - morth_notifications.csv
-  - meity_notifications.csv
-  - combined_legal_toc.csv  ← merged, cleaned, ready for Stage 1 chunking
-
-Install:
-  pip install requests beautifulsoup4 pandas lxml
-
-Run:
-  python stage1_web_scraper.py
 """
 
 # ─────────────────────────────────────────────────────────────────
@@ -584,4 +572,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main()

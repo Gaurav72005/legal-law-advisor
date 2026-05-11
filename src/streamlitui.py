@@ -1,8 +1,17 @@
 """
-Motor & Cyber Law Advisor — Minimal Chat UI
+Motor & Cyber Law Advisor 
 """
 
 import sys
+
+# --- RENDER SQLITE3 WORKAROUND FOR CHROMADB ---
+try:
+    __import__('pysqlite3')
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    pass
+# ----------------------------------------------
+
 import time
 import asyncio
 from pathlib import Path

@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: legal-law-advisor
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run src/streamlitui.py --server.port $PORT --server.address 0.0.0.0
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.13
+      - key: GROQ_API_KEY
+        sync: true
+      - key: GOOGLE_CLIENT_ID
+        sync: true
+      - key: GOOGLE_CLIENT_SECRET
+        sync: true
+      - key: GOOGLE_REDIRECT_URI
+        sync: true
